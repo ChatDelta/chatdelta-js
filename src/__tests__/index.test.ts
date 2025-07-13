@@ -45,6 +45,26 @@ describe('ChatDelta', () => {
       expect(client.model()).toBe('gpt-4');
     });
 
+    it('should create client with default config', () => {
+      const client = createClient('openai', 'test-key', 'gpt-4');
+      expect(client.name()).toBe('ChatGPT');
+    });
+
+    it('should create GPT client via alias', () => {
+      const client = createClient('gpt', 'test-key', 'gpt-4', config);
+      expect(client.name()).toBe('ChatGPT');
+    });
+
+    it('should create ChatGPT client via alias', () => {
+      const client = createClient('chatgpt', 'test-key', 'gpt-4', config);
+      expect(client.name()).toBe('ChatGPT');
+    });
+
+    it('should create Google client via alias', () => {
+      const client = createClient('google', 'test-key', 'gemini-pro', config);
+      expect(client.name()).toBe('Gemini');
+    });
+
     it('should create Claude client', () => {
       const client = createClient('claude', 'test-key', 'claude-3', config);
       expect(client.name()).toBe('Claude');
@@ -55,6 +75,11 @@ describe('ChatDelta', () => {
       const client = createClient('gemini', 'test-key', 'gemini-pro', config);
       expect(client.name()).toBe('Gemini');
       expect(client.model()).toBe('gemini-pro');
+    });
+
+    it('should create Anthropic client via alias', () => {
+      const client = createClient('anthropic', 'test-key', 'claude-3', config);
+      expect(client.name()).toBe('Claude');
     });
 
     it('should throw error for unknown provider', () => {
@@ -91,6 +116,24 @@ describe('ChatDelta', () => {
       expect(results).toHaveLength(2);
       expect(results[0].result).toBe('response1');
       expect(results[1].result).toBeInstanceOf(ClientError);
+    });
+
+    it('should wrap non ClientError exceptions', async () => {
+      const bad: AiClient = {
+        async sendPrompt() {
+          throw new Error('boom');
+        },
+        name() {
+          return 'bad';
+        },
+        model() {
+          return 'm';
+        },
+      };
+
+      const results = await executeParallel([bad], 'x');
+      expect(results[0].result).toBeInstanceOf(ClientError);
+      expect((results[0].result as ClientError).message).toBe('Network error: Unknown error');
     });
   });
 
