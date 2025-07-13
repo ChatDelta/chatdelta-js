@@ -1,0 +1,33 @@
+{
+  "name": "chatdelta",
+  "version": "0.1.0",
+  "description": "A unified JavaScript/TypeScript library for connecting to multiple AI APIs (OpenAI, Google Gemini, Anthropic Claude)",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": ["ai", "openai", "gemini", "claude", "api"],
+  "author": "ChatDelta",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ChatDelta/chatdelta"
+  },
+  "dependencies": {
+    "axios": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.0.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  }
+}
