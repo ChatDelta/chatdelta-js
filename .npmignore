@@ -1,0 +1,8 @@
+src/
+tsconfig.json
+.eslintrc.js
+*.test.ts
+__tests__/
+jest.config.js
+CODE_OF_CONDUCT.md
+CONTRIBUTING.md
