@@ -1,5 +1,5 @@
-import { createClient, executeParallel, generateSummary } from '../index';
-import { AiClient, ClientConfig } from '../types';
+import { createClient, executeParallel, generateSummary, createConversation } from '../index';
+import { AiClient, ClientConfig, StreamChunk, Conversation } from '../types';
 import { ClientError } from '../error';
 
 class MockClient implements AiClient {
@@ -19,6 +19,20 @@ class MockClient implements AiClient {
       throw ClientError.api('No more mock responses');
     }
     return this.responses[this.responseIndex++];
+  }
+
+  async *sendPromptStream(_prompt: string): AsyncGenerator<StreamChunk> {
+    const response = await this.sendPrompt(_prompt);
+    yield { content: response, isComplete: true };
+  }
+
+  async sendConversation(_conversation: Conversation): Promise<string> {
+    return this.sendPrompt('conversation');
+  }
+
+  async *sendConversationStream(_conversation: Conversation): AsyncGenerator<StreamChunk> {
+    const response = await this.sendConversation(_conversation);
+    yield { content: response, isComplete: true };
   }
 
   name(): string {
@@ -121,6 +135,15 @@ describe('ChatDelta', () => {
     it('should wrap non ClientError exceptions', async () => {
       const bad: AiClient = {
         async sendPrompt() {
+          throw new Error('boom');
+        },
+        async *sendPromptStream() {
+          throw new Error('boom');
+        },
+        async sendConversation() {
+          throw new Error('boom');
+        },
+        async *sendConversationStream() {
           throw new Error('boom');
         },
         name() {

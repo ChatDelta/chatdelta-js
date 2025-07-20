@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AiClient, ClientConfig } from '../types';
+import { AiClient, ClientConfig, StreamChunk, Conversation, Message } from '../types';
 import { ClientError } from '../error';
 
 interface OpenAIMessage {
@@ -11,6 +11,11 @@ interface OpenAIRequest {
   model: string;
   messages: OpenAIMessage[];
   temperature?: number;
+  max_tokens?: number;
+  top_p?: number;
+  frequency_penalty?: number;
+  presence_penalty?: number;
+  stream?: boolean;
 }
 
 interface OpenAIResponse {
@@ -25,13 +30,13 @@ export class ChatGpt implements AiClient {
   private http: AxiosInstance;
   private key: string;
   private modelName: string;
-  private temperature?: number;
+  private config: ClientConfig;
   private retries: number;
 
   constructor(key: string, model: string, config: ClientConfig) {
     this.key = key;
     this.modelName = model;
-    this.temperature = config.temperature;
+    this.config = config;
     this.retries = config.retries;
     
     this.http = axios.create({
@@ -45,15 +50,22 @@ export class ChatGpt implements AiClient {
   }
 
   async sendPrompt(prompt: string): Promise<string> {
+    const messages: OpenAIMessage[] = [];
+    
+    if (this.config.systemMessage) {
+      messages.push({ role: 'system', content: this.config.systemMessage });
+    }
+    
+    messages.push({ role: 'user', content: prompt });
+    
     const body: OpenAIRequest = {
       model: this.modelName,
-      messages: [
-        {
-          role: 'user',
-          content: prompt,
-        },
-      ],
-      ...(this.temperature !== undefined && { temperature: this.temperature }),
+      messages,
+      ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
+      ...(this.config.maxTokens !== undefined && { max_tokens: this.config.maxTokens }),
+      ...(this.config.topP !== undefined && { top_p: this.config.topP }),
+      ...(this.config.frequencyPenalty !== undefined && { frequency_penalty: this.config.frequencyPenalty }),
+      ...(this.config.presencePenalty !== undefined && { presence_penalty: this.config.presencePenalty }),
     };
 
     let lastError: ClientError | null = null;
@@ -119,6 +131,173 @@ export class ChatGpt implements AiClient {
     }
     
     return ClientError.network('Unknown error occurred');
+  }
+
+  async *sendPromptStream(prompt: string): AsyncGenerator<StreamChunk> {
+    const messages: OpenAIMessage[] = [];
+    
+    if (this.config.systemMessage) {
+      messages.push({ role: 'system', content: this.config.systemMessage });
+    }
+    
+    messages.push({ role: 'user', content: prompt });
+    
+    const body: OpenAIRequest = {
+      model: this.modelName,
+      messages,
+      stream: true,
+      ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
+      ...(this.config.maxTokens !== undefined && { max_tokens: this.config.maxTokens }),
+      ...(this.config.topP !== undefined && { top_p: this.config.topP }),
+      ...(this.config.frequencyPenalty !== undefined && { frequency_penalty: this.config.frequencyPenalty }),
+      ...(this.config.presencePenalty !== undefined && { presence_penalty: this.config.presencePenalty }),
+    };
+
+    try {
+      const response = await this.http.post('/chat/completions', body, {
+        responseType: 'stream',
+      });
+
+      let buffer = '';
+      
+      for await (const chunk of response.data) {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            
+            if (data === '[DONE]') {
+              yield { content: '', isComplete: true };
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              
+              if (content) {
+                yield { content, isComplete: false };
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      }
+    } catch (error) {
+      throw this.handleError(error);
+    }
+  }
+
+  async sendConversation(conversation: Conversation): Promise<string> {
+    const messages: OpenAIMessage[] = [];
+    
+    if (this.config.systemMessage) {
+      messages.push({ role: 'system', content: this.config.systemMessage });
+    }
+    
+    messages.push(...conversation.getMessages().map(msg => ({
+      role: msg.role,
+      content: msg.content
+    })));
+    
+    const body: OpenAIRequest = {
+      model: this.modelName,
+      messages,
+      ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
+      ...(this.config.maxTokens !== undefined && { max_tokens: this.config.maxTokens }),
+      ...(this.config.topP !== undefined && { top_p: this.config.topP }),
+      ...(this.config.frequencyPenalty !== undefined && { frequency_penalty: this.config.frequencyPenalty }),
+      ...(this.config.presencePenalty !== undefined && { presence_penalty: this.config.presencePenalty }),
+    };
+
+    let lastError: ClientError | null = null;
+    
+    for (let attempt = 0; attempt <= this.retries; attempt++) {
+      try {
+        const response = await this.http.post<OpenAIResponse>('/chat/completions', body);
+        
+        const content = response.data.choices[0]?.message?.content;
+        if (!content) {
+          throw ClientError.api('No response from ChatGPT');
+        }
+        
+        return content;
+      } catch (error) {
+        lastError = this.handleError(error);
+        
+        if (attempt < this.retries) {
+          await this.delay(1000 * (attempt + 1));
+        }
+      }
+    }
+
+    throw lastError!;
+  }
+
+  async *sendConversationStream(conversation: Conversation): AsyncGenerator<StreamChunk> {
+    const messages: OpenAIMessage[] = [];
+    
+    if (this.config.systemMessage) {
+      messages.push({ role: 'system', content: this.config.systemMessage });
+    }
+    
+    messages.push(...conversation.getMessages().map(msg => ({
+      role: msg.role,
+      content: msg.content
+    })));
+    
+    const body: OpenAIRequest = {
+      model: this.modelName,
+      messages,
+      stream: true,
+      ...(this.config.temperature !== undefined && { temperature: this.config.temperature }),
+      ...(this.config.maxTokens !== undefined && { max_tokens: this.config.maxTokens }),
+      ...(this.config.topP !== undefined && { top_p: this.config.topP }),
+      ...(this.config.frequencyPenalty !== undefined && { frequency_penalty: this.config.frequencyPenalty }),
+      ...(this.config.presencePenalty !== undefined && { presence_penalty: this.config.presencePenalty }),
+    };
+
+    try {
+      const response = await this.http.post('/chat/completions', body, {
+        responseType: 'stream',
+      });
+
+      let buffer = '';
+      
+      for await (const chunk of response.data) {
+        buffer += chunk.toString();
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const data = line.slice(6).trim();
+            
+            if (data === '[DONE]') {
+              yield { content: '', isComplete: true };
+              return;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              const content = parsed.choices?.[0]?.delta?.content;
+              
+              if (content) {
+                yield { content, isComplete: false };
+              }
+            } catch (e) {
+              // Skip invalid JSON lines
+            }
+          }
+        }
+      }
+    } catch (error) {
+      throw this.handleError(error);
+    }
   }
 
   private delay(ms: number): Promise<void> {

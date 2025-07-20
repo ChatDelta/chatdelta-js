@@ -1,8 +1,22 @@
-import { AiClient, ClientConfig, defaultClientConfig } from './types';
+import { AiClient, ClientConfig, defaultClientConfig, StreamChunk, Conversation, Message } from './types';
 import { ClientError } from './error';
 import { ChatGpt, Claude, Gemini } from './clients';
+import { Conversation as ConversationImpl } from './conversation';
+import { ClientConfigBuilder } from './config';
 
-export { AiClient, ClientConfig, ClientError, ChatGpt, Claude, Gemini };
+export { 
+  AiClient, 
+  ClientConfig, 
+  ClientError, 
+  ChatGpt, 
+  Claude, 
+  Gemini,
+  StreamChunk,
+  Conversation,
+  Message,
+  ConversationImpl,
+  ClientConfigBuilder
+};
 
 /**
  * Factory function to create an AI client instance for a supported provider.
@@ -78,6 +92,39 @@ export async function executeParallel(
 }
 
 /**
+ * Executes a conversation in parallel across multiple AI clients.
+ * @param clients - Array of AiClient instances.
+ * @param conversation - The conversation to send to each client.
+ * @returns Array of results from each client (name and result or error).
+ */
+export async function executeParallelConversation(
+  clients: AiClient[],
+  conversation: Conversation
+): Promise<Array<{ name: string; result: string | ClientError }>> {
+  const promises = clients.map(async (client) => {
+    try {
+      const result = await client.sendConversation(conversation);
+      return { name: client.name(), result };
+    } catch (error) {
+      return { 
+        name: client.name(), 
+        result: error instanceof ClientError ? error : ClientError.network('Unknown error') 
+      };
+    }
+  });
+
+  return Promise.all(promises);
+}
+
+/**
+ * Creates a new conversation instance.
+ * @returns A new Conversation instance.
+ */
+export function createConversation(): Conversation {
+  return new ConversationImpl();
+}
+
+/**
  * Generates a summary of multiple AI model responses using a provided client.
  * @param client - The AiClient to use for summarization.
  * @param responses - Array of objects with model name and response.
@@ -96,4 +143,34 @@ export async function generateSummary(
   summaryPrompt += 'Summarize the key differences and commonalities.';
   
   return client.sendPrompt(summaryPrompt);
+}
+
+/**
+ * Execute with retry logic using exponential backoff.
+ * @param fn - The async function to execute.
+ * @param retries - Number of retry attempts.
+ * @param baseDelay - Base delay in milliseconds.
+ * @returns The result of the function or throws the last error.
+ */
+export async function executeWithRetry<T>(
+  fn: () => Promise<T>,
+  retries: number = 3,
+  baseDelay: number = 1000
+): Promise<T> {
+  let lastError: Error | null = null;
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error instanceof Error ? error : new Error('Unknown error');
+      
+      if (attempt < retries) {
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+  }
+
+  throw lastError!;
 }

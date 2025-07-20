@@ -4,6 +4,7 @@ export enum ClientErrorType {
   Authentication = 'Authentication',
   Configuration = 'Configuration',
   Parse = 'Parse',
+  Stream = 'Stream',
 }
 
 /**
@@ -68,5 +69,12 @@ export class ClientError extends Error {
    */
   static parse(message: string): ClientError {
     return new ClientError(ClientErrorType.Parse, message);
+  }
+
+  /**
+   * Creates a stream error.
+   */
+  static stream(message: string): ClientError {
+    return new ClientError(ClientErrorType.Stream, message);
   }
 }

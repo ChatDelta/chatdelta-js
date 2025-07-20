@@ -1,9 +1,12 @@
 {
   "name": "chatdelta",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "A unified JavaScript/TypeScript library for connecting to multiple AI APIs (OpenAI ChatGPT, Google Gemini, Anthropic Claude)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
+  "bin": {
+    "chatdelta": "dist/cli.js"
+  },
   "scripts": {
     "prepare": "npm run build",
     "build": "tsc",
@@ -39,7 +42,8 @@
     "url": "https://github.com/ChatDelta/chatdelta-js"
   },
   "dependencies": {
-    "axios": "^1.6.0"
+    "axios": "^1.6.0",
+    "commander": "^11.1.0"
   },
   "devDependencies": {
     "@types/jest": "^29.5.0",
