@@ -1,3 +1,10 @@
+export enum RetryStrategy {
+  Fixed = 'fixed',
+  Linear = 'linear',
+  ExponentialBackoff = 'exponential',
+  ExponentialWithJitter = 'exponential_with_jitter',
+}
+
 export interface ClientConfig {
   timeout: number;
   retries: number;
@@ -23,13 +30,6 @@ export const defaultClientConfig: ClientConfig = {
   baseUrl: undefined,
   retryStrategy: RetryStrategy.ExponentialBackoff,
 };
-
-export enum RetryStrategy {
-  Fixed = 'fixed',
-  Linear = 'linear',
-  ExponentialBackoff = 'exponential',
-  ExponentialWithJitter = 'exponential_with_jitter',
-}
 
 export interface ResponseMetadata {
   modelUsed?: string;

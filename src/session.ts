@@ -1,5 +1,5 @@
 import { AiClient, AiResponse, Conversation, Message, StreamChunk } from './types';
-import { ConversationImpl } from './conversation';
+import { Conversation as ConversationImpl } from './conversation';
 
 /**
  * A session for managing multi-turn conversations with an AI client.

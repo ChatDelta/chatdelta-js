@@ -1,4 +1,4 @@
-import { ClientError } from './error';
+import { ClientError, ClientErrorType } from './error';
 import { RetryStrategy } from './types';
 
 /**
@@ -73,12 +73,12 @@ export function isRetryableError(error: unknown): boolean {
   }
   
   // Network errors are generally retryable
-  if (error.type === 'network') {
+  if (error.type === ClientErrorType.Network) {
     return true;
   }
   
   // Rate limit errors are retryable
-  if (error.type === 'api' && error.message.toLowerCase().includes('rate limit')) {
+  if (error.type === ClientErrorType.Api && error.message.toLowerCase().includes('rate limit')) {
     return true;
   }
   
@@ -88,12 +88,12 @@ export function isRetryableError(error: unknown): boolean {
   }
   
   // 5xx server errors are retryable
-  if (error.type === 'api' && error.message.match(/HTTP 5\d\d/)) {
+  if (error.type === ClientErrorType.Api && error.message.match(/HTTP 5\d\d/)) {
     return true;
   }
   
   // Authentication and configuration errors are not retryable
-  if (error.type === 'authentication' || error.type === 'configuration') {
+  if (error.type === ClientErrorType.Authentication || error.type === ClientErrorType.Configuration) {
     return false;
   }
   

@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AiClient, ClientConfig, StreamChunk, Conversation, Message } from '../types';
+import { AiClient, ClientConfig, StreamChunk, Conversation, Message, AiResponse, ResponseMetadata } from '../types';
 import { ClientError } from '../error';
 
 interface GeminiContent {
@@ -198,6 +198,40 @@ export class Gemini implements AiClient {
     // For now, fallback to non-streaming
     const result = await this.sendConversation(conversation);
     yield { content: result, isComplete: true };
+  }
+
+  async sendPromptWithMetadata(prompt: string): Promise<AiResponse> {
+    const startTime = Date.now();
+    const content = await this.sendPrompt(prompt);
+    const latencyMs = Date.now() - startTime;
+    
+    const metadata: ResponseMetadata = {
+      modelUsed: this.modelName,
+      latencyMs,
+    };
+    
+    return { content, metadata };
+  }
+
+  async sendConversationWithMetadata(conversation: Conversation): Promise<AiResponse> {
+    const startTime = Date.now();
+    const content = await this.sendConversation(conversation);
+    const latencyMs = Date.now() - startTime;
+    
+    const metadata: ResponseMetadata = {
+      modelUsed: this.modelName,
+      latencyMs,
+    };
+    
+    return { content, metadata };
+  }
+
+  supportsStreaming(): boolean {
+    return false; // Gemini streaming support coming soon
+  }
+
+  supportsConversations(): boolean {
+    return true;
   }
 
   private delay(ms: number): Promise<void> {

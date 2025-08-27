@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AiClient, ClientConfig, StreamChunk, Conversation, Message } from '../types';
+import { AiClient, ClientConfig, StreamChunk, Conversation, Message, AiResponse, ResponseMetadata } from '../types';
 import { ClientError } from '../error';
 
 interface ClaudeMessage {
@@ -284,6 +284,40 @@ export class Claude implements AiClient {
     } catch (error) {
       throw this.handleError(error);
     }
+  }
+
+  async sendPromptWithMetadata(prompt: string): Promise<AiResponse> {
+    const startTime = Date.now();
+    const content = await this.sendPrompt(prompt);
+    const latencyMs = Date.now() - startTime;
+    
+    const metadata: ResponseMetadata = {
+      modelUsed: this.modelName,
+      latencyMs,
+    };
+    
+    return { content, metadata };
+  }
+
+  async sendConversationWithMetadata(conversation: Conversation): Promise<AiResponse> {
+    const startTime = Date.now();
+    const content = await this.sendConversation(conversation);
+    const latencyMs = Date.now() - startTime;
+    
+    const metadata: ResponseMetadata = {
+      modelUsed: this.modelName,
+      latencyMs,
+    };
+    
+    return { content, metadata };
+  }
+
+  supportsStreaming(): boolean {
+    return true;
+  }
+
+  supportsConversations(): boolean {
+    return true;
   }
 
   private delay(ms: number): Promise<void> {
