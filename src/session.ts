@@ -105,7 +105,7 @@ export class ChatSession {
   }
 
   /**
-   * Clear the conversation history
+   * Clear all messages from the conversation history
    */
   clear(): void {
     this.conversation.clear();

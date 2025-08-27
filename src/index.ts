@@ -35,12 +35,22 @@ export {
 
 /**
  * Factory function to create an AI client instance for a supported provider.
- * @param provider - The AI provider (e.g., 'openai', 'gemini', 'claude').
- * @param apiKey - The API key for the provider.
- * @param model - The model name to use.
- * @param config - Optional configuration overrides.
- * @returns An AiClient instance for the specified provider.
- * @throws {ClientError} If provider, apiKey, or model are invalid or unsupported.
+ * 
+ * @param {string} provider - The AI provider ('openai'|'gpt'|'chatgpt'|'google'|'gemini'|'anthropic'|'claude')
+ * @param {string} apiKey - The API key for the provider
+ * @param {string} model - The model name to use (e.g., 'gpt-4', 'claude-3-sonnet', 'gemini-pro')
+ * @param {Partial<ClientConfig>} [config={}] - Optional configuration overrides
+ * @returns {AiClient} An AiClient instance for the specified provider
+ * @throws {ClientError} If provider, apiKey, or model are invalid or unsupported
+ * 
+ * @example
+ * ```typescript
+ * const client = createClient('openai', process.env.OPENAI_KEY, 'gpt-4', {
+ *   temperature: 0.7,
+ *   maxTokens: 2048,
+ *   retryStrategy: RetryStrategy.ExponentialWithJitter
+ * });
+ * ```
  */
 export function createClient(
   provider: string,
@@ -83,9 +93,19 @@ export function createClient(
 
 /**
  * Executes a prompt in parallel across multiple AI clients.
- * @param clients - Array of AiClient instances.
- * @param prompt - The prompt to send to each client.
- * @returns Array of results from each client (name and result or error).
+ * 
+ * @param {AiClient[]} clients - Array of AiClient instances
+ * @param {string} prompt - The prompt to send to each client
+ * @returns {Promise<Array<{name: string, result: string | ClientError}>>} Array of results from each client
+ * 
+ * @example
+ * ```typescript
+ * const clients = [
+ *   createClient('openai', key1, 'gpt-4'),
+ *   createClient('claude', key2, 'claude-3-sonnet')
+ * ];
+ * const results = await executeParallel(clients, 'Explain quantum computing');
+ * ```
  */
 export async function executeParallel(
   clients: AiClient[],
@@ -108,9 +128,17 @@ export async function executeParallel(
 
 /**
  * Executes a conversation in parallel across multiple AI clients.
- * @param clients - Array of AiClient instances.
- * @param conversation - The conversation to send to each client.
- * @returns Array of results from each client (name and result or error).
+ * 
+ * @param {AiClient[]} clients - Array of AiClient instances
+ * @param {Conversation} conversation - The conversation to send to each client
+ * @returns {Promise<Array<{name: string, result: string | ClientError}>>} Array of results from each client
+ * 
+ * @example
+ * ```typescript
+ * const conversation = createConversation();
+ * conversation.addUserMessage('What is AI?');
+ * const results = await executeParallelConversation(clients, conversation);
+ * ```
  */
 export async function executeParallelConversation(
   clients: AiClient[],
@@ -133,7 +161,15 @@ export async function executeParallelConversation(
 
 /**
  * Creates a new conversation instance.
- * @returns A new Conversation instance.
+ * 
+ * @returns {Conversation} A new Conversation instance
+ * 
+ * @example
+ * ```typescript
+ * const conversation = createConversation();
+ * conversation.addUserMessage('Hello');
+ * conversation.addAssistantMessage('Hi! How can I help you?');
+ * ```
  */
 export function createConversation(): Conversation {
   return new ConversationImpl();
@@ -141,9 +177,20 @@ export function createConversation(): Conversation {
 
 /**
  * Generates a summary of multiple AI model responses using a provided client.
- * @param client - The AiClient to use for summarization.
- * @param responses - Array of objects with model name and response.
- * @returns A summary string highlighting differences and commonalities.
+ * Useful for comparing outputs from different models.
+ * 
+ * @param {AiClient} client - The AiClient to use for summarization
+ * @param {Array<{name: string, response: string}>} responses - Array of model responses
+ * @returns {Promise<string>} A summary highlighting differences and commonalities
+ * 
+ * @example
+ * ```typescript
+ * const responses = [
+ *   { name: 'GPT-4', response: 'Response from GPT-4...' },
+ *   { name: 'Claude', response: 'Response from Claude...' }
+ * ];
+ * const summary = await generateSummary(client, responses);
+ * ```
  */
 export async function generateSummary(
   client: AiClient,
@@ -162,10 +209,13 @@ export async function generateSummary(
 
 /**
  * Execute with retry logic using exponential backoff.
- * @param fn - The async function to execute.
- * @param retries - Number of retry attempts.
- * @param baseDelay - Base delay in milliseconds.
- * @returns The result of the function or throws the last error.
+ * @deprecated Use executeWithRetry from './retry' instead
+ * 
+ * @param {() => Promise<T>} fn - The async function to execute
+ * @param {number} [retries=3] - Number of retry attempts
+ * @param {number} [baseDelay=1000] - Base delay in milliseconds
+ * @returns {Promise<T>} The result of the function
+ * @throws {Error} The last error if all retries fail
  */
 export async function executeWithRetry<T>(
   fn: () => Promise<T>,

@@ -3,7 +3,7 @@ import { RetryStrategy } from './types';
 
 /**
  * Configuration for retry behavior
- * Ported from chatdelta-rs/src/utils.rs
+ * @interface RetryConfig
  */
 export interface RetryConfig {
   strategy: RetryStrategy;
@@ -14,6 +14,7 @@ export interface RetryConfig {
 
 /**
  * Default retry configuration
+ * @constant {RetryConfig}
  */
 export const defaultRetryConfig: RetryConfig = {
   strategy: RetryStrategy.ExponentialBackoff,
@@ -24,6 +25,12 @@ export const defaultRetryConfig: RetryConfig = {
 
 /**
  * Calculate delay based on retry strategy
+ * @param {RetryStrategy} strategy - The retry strategy to use
+ * @param {number} attempt - Current attempt number (0-indexed)
+ * @param {number} baseDelayMs - Base delay in milliseconds
+ * @param {number} [maxDelayMs] - Maximum delay cap
+ * @returns {number} Calculated delay in milliseconds
+ * @private
  */
 function calculateDelay(
   strategy: RetryStrategy,
@@ -65,7 +72,12 @@ function calculateDelay(
 }
 
 /**
- * Check if an error is retryable
+ * Check if an error is retryable.
+ * Network errors, rate limits, timeouts, and 5xx errors are retryable.
+ * Authentication and configuration errors are not retryable.
+ * 
+ * @param {unknown} error - The error to check
+ * @returns {boolean} True if the error is retryable
  */
 export function isRetryableError(error: unknown): boolean {
   if (!(error instanceof ClientError)) {
@@ -101,8 +113,22 @@ export function isRetryableError(error: unknown): boolean {
 }
 
 /**
- * Execute a function with retry logic
- * Ported from chatdelta-rs/src/utils.rs execute_with_retry
+ * Execute a function with retry logic using the specified strategy.
+ * Will retry on retryable errors up to maxAttempts times.
+ * 
+ * @template T - Return type of the function
+ * @param {() => Promise<T>} fn - The async function to execute
+ * @param {Partial<RetryConfig>} [config={}] - Retry configuration
+ * @returns {Promise<T>} The result of the function
+ * @throws {Error} The last error if all retries fail
+ * 
+ * @example
+ * ```typescript
+ * const result = await executeWithRetry(
+ *   () => client.sendPrompt('Hello'),
+ *   { maxAttempts: 5, strategy: RetryStrategy.ExponentialWithJitter }
+ * );
+ * ```
  */
 export async function executeWithRetry<T>(
   fn: () => Promise<T>,
@@ -143,7 +169,23 @@ export async function executeWithRetry<T>(
 }
 
 /**
- * Create a retry wrapper for a function
+ * Create a retry wrapper for a function.
+ * Returns a new function that automatically retries on failure.
+ * 
+ * @template T - Function type
+ * @param {T} fn - The async function to wrap
+ * @param {Partial<RetryConfig>} [config={}] - Retry configuration
+ * @returns {T} A wrapped function with retry logic
+ * 
+ * @example
+ * ```typescript
+ * const sendPromptWithRetry = withRetry(
+ *   client.sendPrompt.bind(client),
+ *   { maxAttempts: 3 }
+ * );
+ * 
+ * const response = await sendPromptWithRetry('Hello');
+ * ```
  */
 export function withRetry<T extends (...args: any[]) => Promise<any>>(
   fn: T,
