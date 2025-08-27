@@ -1,8 +1,19 @@
-import { AiClient, ClientConfig, defaultClientConfig, StreamChunk, Conversation, Message } from './types';
+import { 
+  AiClient, 
+  ClientConfig, 
+  defaultClientConfig, 
+  StreamChunk, 
+  Conversation, 
+  Message,
+  ResponseMetadata,
+  AiResponse,
+  RetryStrategy
+} from './types';
 import { ClientError } from './error';
 import { ChatGpt, Claude, Gemini } from './clients';
 import { Conversation as ConversationImpl } from './conversation';
 import { ClientConfigBuilder } from './config';
+import { ChatSession } from './session';
 
 export { 
   AiClient, 
@@ -15,7 +26,11 @@ export {
   Conversation,
   Message,
   ConversationImpl,
-  ClientConfigBuilder
+  ClientConfigBuilder,
+  ChatSession,
+  ResponseMetadata,
+  AiResponse,
+  RetryStrategy
 };
 
 /**

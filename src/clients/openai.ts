@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { AiClient, ClientConfig, StreamChunk, Conversation, Message } from '../types';
+import { AiClient, ClientConfig, StreamChunk, Conversation, Message, AiResponse, ResponseMetadata } from '../types';
 import { ClientError } from '../error';
 
 interface OpenAIMessage {
@@ -19,11 +19,19 @@ interface OpenAIRequest {
 }
 
 interface OpenAIResponse {
+  id?: string;
+  model?: string;
   choices: Array<{
     message: {
       content: string;
     };
+    finish_reason?: string;
   }>;
+  usage?: {
+    prompt_tokens?: number;
+    completion_tokens?: number;
+    total_tokens?: number;
+  };
 }
 
 export class ChatGpt implements AiClient {
@@ -41,7 +49,7 @@ export class ChatGpt implements AiClient {
     
     this.http = axios.create({
       timeout: config.timeout,
-      baseURL: 'https://api.openai.com/v1',
+      baseURL: config.baseUrl || 'https://api.openai.com/v1',
       headers: {
         'Authorization': `Bearer ${key}`,
         'Content-Type': 'application/json',
@@ -50,6 +58,11 @@ export class ChatGpt implements AiClient {
   }
 
   async sendPrompt(prompt: string): Promise<string> {
+    const response = await this.sendPromptWithMetadata(prompt);
+    return response.content;
+  }
+
+  async sendPromptWithMetadata(prompt: string): Promise<AiResponse> {
     const messages: OpenAIMessage[] = [];
     
     if (this.config.systemMessage) {
@@ -72,14 +85,26 @@ export class ChatGpt implements AiClient {
     
     for (let attempt = 0; attempt <= this.retries; attempt++) {
       try {
+        const startTime = Date.now();
         const response = await this.http.post<OpenAIResponse>('/chat/completions', body);
+        const latencyMs = Date.now() - startTime;
         
         const content = response.data.choices[0]?.message?.content;
         if (!content) {
           throw ClientError.api('No response from ChatGPT');
         }
         
-        return content;
+        const metadata: ResponseMetadata = {
+          modelUsed: response.data.model,
+          promptTokens: response.data.usage?.prompt_tokens,
+          completionTokens: response.data.usage?.completion_tokens,
+          totalTokens: response.data.usage?.total_tokens,
+          finishReason: response.data.choices[0]?.finish_reason,
+          requestId: response.data.id,
+          latencyMs,
+        };
+        
+        return { content, metadata };
       } catch (error) {
         lastError = this.handleError(error);
         
@@ -193,6 +218,11 @@ export class ChatGpt implements AiClient {
   }
 
   async sendConversation(conversation: Conversation): Promise<string> {
+    const response = await this.sendConversationWithMetadata(conversation);
+    return response.content;
+  }
+
+  async sendConversationWithMetadata(conversation: Conversation): Promise<AiResponse> {
     const messages: OpenAIMessage[] = [];
     
     if (this.config.systemMessage) {
@@ -218,14 +248,26 @@ export class ChatGpt implements AiClient {
     
     for (let attempt = 0; attempt <= this.retries; attempt++) {
       try {
+        const startTime = Date.now();
         const response = await this.http.post<OpenAIResponse>('/chat/completions', body);
+        const latencyMs = Date.now() - startTime;
         
         const content = response.data.choices[0]?.message?.content;
         if (!content) {
           throw ClientError.api('No response from ChatGPT');
         }
         
-        return content;
+        const metadata: ResponseMetadata = {
+          modelUsed: response.data.model,
+          promptTokens: response.data.usage?.prompt_tokens,
+          completionTokens: response.data.usage?.completion_tokens,
+          totalTokens: response.data.usage?.total_tokens,
+          finishReason: response.data.choices[0]?.finish_reason,
+          requestId: response.data.id,
+          latencyMs,
+        };
+        
+        return { content, metadata };
       } catch (error) {
         lastError = this.handleError(error);
         
@@ -298,6 +340,14 @@ export class ChatGpt implements AiClient {
     } catch (error) {
       throw this.handleError(error);
     }
+  }
+
+  supportsStreaming(): boolean {
+    return true;
+  }
+
+  supportsConversations(): boolean {
+    return true;
   }
 
   private delay(ms: number): Promise<void> {

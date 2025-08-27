@@ -1,6 +1,6 @@
 {
   "name": "chatdelta",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A unified JavaScript/TypeScript library for connecting to multiple AI APIs (OpenAI ChatGPT, Google Gemini, Anthropic Claude)",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
